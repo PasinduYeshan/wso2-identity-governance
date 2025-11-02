@@ -29,6 +29,7 @@ import org.wso2.carbon.identity.governance.internal.IdentityMgtServiceDataHolder
 import org.wso2.carbon.identity.governance.model.UserIdentityClaim;
 import org.wso2.carbon.identity.governance.service.IdentityDataStoreService;
 import org.wso2.carbon.identity.governance.store.UserIdentityDataStore;
+import org.wso2.carbon.identity.governance.util.IdentityClaimStoreResolver;
 import org.wso2.carbon.user.api.RealmConfiguration;
 import org.wso2.carbon.user.core.UserCoreConstants;
 import org.wso2.carbon.user.core.UserRealm;
@@ -125,17 +126,18 @@ public class IdentityStoreEventListener extends AbstractIdentityUserOperationEve
         while (it.hasNext()) {
 
             Map.Entry<String, String> claim = it.next();
-            if (claim.getKey().contains(UserCoreConstants.ClaimTypeURIs.IDENTITY_CLAIM_URI_PREFIX)
-                    && !(isUserStoreBasedIdentityDataStore() ||
+            if (!(isUserStoreBasedIdentityDataStore() ||
                     isStoreIdentityClaimsInUserStoreEnabled(userStoreManager))) {
-                // add the identity claim to temp map
-                userDataMap.put(claim.getKey(), claim.getValue());
-                // we remove the identity claims to prevent it from getting stored in user store
-                // before the user is successfully added
-                if (log.isDebugEnabled()) {
-                    log.debug(claim.getKey() + " claim added to thread local for user: " + userName + " in preUserAdd");
+                boolean storeInIdentityDS = IdentityClaimStoreResolver
+                        .shouldPersistInIdentityDataStore(claim.getKey(), userStoreManager);
+                if (storeInIdentityDS) {
+                    userDataMap.put(claim.getKey(), claim.getValue());
+                    if (log.isDebugEnabled()) {
+                        log.debug(claim.getKey() + " claim added to thread local for user: " + userName +
+                                " in preUserAdd");
+                    }
+                    it.remove();
                 }
-                it.remove();
             }
         }
 
@@ -306,7 +308,7 @@ public class IdentityStoreEventListener extends AbstractIdentityUserOperationEve
         // check if there are identity claims
         boolean containsIdentityClaims = false;
         for (String claim : claims) {
-            if (claim.contains(UserCoreConstants.ClaimTypeURIs.IDENTITY_CLAIM_URI_PREFIX)) {
+            if (IdentityClaimStoreResolver.shouldPersistInIdentityDataStore(claim, userStoreManager)) {
                 containsIdentityClaims = true;
                 break;
             }

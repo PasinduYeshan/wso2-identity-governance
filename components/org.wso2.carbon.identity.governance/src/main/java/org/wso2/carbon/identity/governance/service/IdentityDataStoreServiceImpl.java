@@ -26,6 +26,7 @@ import org.wso2.carbon.identity.governance.model.UserIdentityClaim;
 import org.wso2.carbon.identity.governance.store.JDBCIdentityDataStore;
 import org.wso2.carbon.identity.governance.store.UserIdentityDataStore;
 import org.wso2.carbon.identity.governance.store.UserStoreBasedIdentityDataStore;
+import org.wso2.carbon.identity.governance.util.IdentityClaimStoreResolver;
 import org.wso2.carbon.user.core.UserCoreConstants;
 import org.wso2.carbon.user.core.UserStoreException;
 import org.wso2.carbon.user.core.UserStoreManager;
@@ -51,6 +52,7 @@ public class IdentityDataStoreServiceImpl implements IdentityDataStoreService {
             "org.wso2.carbon.identity.governance.store.JDBCIdentityDataStore";
     private static final String DEFAULT_USER_STORE_BASED_IDENTITY_DATA_STORE =
             "org.wso2.carbon.identity.governance.store.UserStoreBasedIdentityDataStore";
+    private static final String COMMA = ",";
 
     public IdentityDataStoreServiceImpl() throws ClassNotFoundException, InstantiationException,
             IllegalAccessException {
@@ -80,7 +82,8 @@ public class IdentityDataStoreServiceImpl implements IdentityDataStoreService {
             }
         }
 
-        // No need to separately handle if data identityDataStore is user store based.
+        // When identity data store is user store based or the given user store stores identity claims, do not
+        // persist identity claims in identity data store.
         if (isUserStoreBasedIdentityDataStore() || isStoreIdentityClaimsInUserStoreEnabled(userStoreManager)) {
             return true;
         }
@@ -100,20 +103,10 @@ public class IdentityDataStoreServiceImpl implements IdentityDataStoreService {
                     userIdentityClaim = new UserIdentityClaim(userName);
                 }
 
-                Iterator<Map.Entry<String, String>> claimsIterator = claims.entrySet().iterator();
+                Map<String, String> identityClaims = IdentityClaimStoreResolver
+                        .collectClaimsForIdentityDataStore(claims, userStoreManager);
 
-                while (claimsIterator.hasNext()) {
-                    Map.Entry<String, String> claim = claimsIterator.next();
-                    String key = claim.getKey();
-                    String value = claim.getValue();
-                    if (StringUtils.isEmpty(key)) {
-                        continue;
-                    }
-                    if (key.contains(UserCoreConstants.ClaimTypeURIs.IDENTITY_CLAIM_URI_PREFIX)) {
-                        userIdentityClaim.setUserIdentityDataClaim(key, value);
-                        claimsIterator.remove();
-                    }
-                }
+                identityClaims.forEach(userIdentityClaim::setUserIdentityDataClaim);
 
                 // Storing the identity claims and challenge questions.
                 try {
