@@ -46,9 +46,11 @@ import org.wso2.carbon.user.core.util.UserCoreUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class IdentityStoreEventListener extends AbstractIdentityUserOperationEventListener {
 
@@ -246,30 +248,89 @@ public class IdentityStoreEventListener extends AbstractIdentityUserOperationEve
         if (isHybridDataStoreEnable) {
             return true;
         }
-        removeIdentityClaims(claims, UserCoreConstants.ClaimTypeURIs.IDENTITY_CLAIM_URI);
+
+        filterClaimsForUserStore(claims, storeManager);
         return true;
     }
 
     /**
-     * Removes all identity claims that contain the specified identity claim URI from the given array of claims.
+     * Removes claims that should be fetched from the identity data store from the provided claim array.
+     * Remaining claims are compacted in-place so the user store receives only the claims it can serve.
      *
-     * @param claims           Array of claims to be filtered
-     * @param identityClaimURI Identity claim URI to be removed from the claims
+     * @param claims        Array of requested claims; modified in-place.
+     * @param storeManager  User store used to evaluate claim storage locations.
      */
-    private static void removeIdentityClaims(String[] claims, String identityClaimURI) {
+    private void filterClaimsForUserStore(String[] claims, UserStoreManager storeManager) {
 
         int validCount = 0;
 
         for (int i = 0; i < claims.length; i++) {
-            if (claims[i] != null && !claims[i].contains(identityClaimURI)) {
-                claims[validCount++] = claims[i];
+            String claim = claims[i];
+            if (StringUtils.isBlank(claim)) {
+                claims[i] = null;
+                continue;
+            }
+
+            if (IdentityClaimStoreResolver.shouldPersistInIdentityDataStore(claim, storeManager)) {
+                claims[i] = null;
+                continue;
+            }
+
+            claims[validCount++] = claim;
+            if (validCount - 1 != i) {
+                claims[i] = null;
             }
         }
 
-        // Set the remaining elements to null
         while (validCount < claims.length) {
             claims[validCount++] = null;
         }
+    }
+
+    /**
+     * Determine which of the provided claims should be loaded from the identity data store.
+     *
+     * @param claims        Array of claims under evaluation.
+     * @param storeManager  User store used to evaluate claim storage locations.
+     * @return Set of claim URIs that must be sourced from the identity data store.
+     */
+    private Set<String> resolveIdentityStoreClaims(String[] claims, UserStoreManager storeManager) {
+
+        Set<String> identityStoreClaims = new HashSet<>();
+        if (claims == null) {
+            return identityStoreClaims;
+        }
+
+        for (String claim : claims) {
+            if (StringUtils.isBlank(claim)) {
+                continue;
+            }
+            if (IdentityClaimStoreResolver.shouldPersistInIdentityDataStore(claim, storeManager)) {
+                identityStoreClaims.add(claim);
+            }
+        }
+        return identityStoreClaims;
+    }
+
+    /**
+     * Resolve the effective user store manager for the given user, falling back to the primary store when
+     * a matching secondary store is unavailable.
+     *
+     * @param userStoreManager Primary user store manager passed into the listener.
+     * @param username         Username whose domain determines the target store.
+     * @return User store manager responsible for the supplied user.
+     * @throws UserStoreException If retrieving the secondary user store manager fails.
+     */
+    private UserStoreManager resolveUserStoreManagerForUser(UserStoreManager userStoreManager, String username)
+            throws UserStoreException {
+
+        String domain = UserCoreUtil.extractDomainFromName(username);
+        if (StringUtils.isBlank(domain) || UserCoreConstants.PRIMARY_DEFAULT_DOMAIN_NAME.equalsIgnoreCase(domain)) {
+            return userStoreManager;
+        }
+
+        UserStoreManager secondary = userStoreManager.getSecondaryUserStoreManager(domain);
+        return secondary != null ? secondary : userStoreManager;
     }
 
     @Override
@@ -295,40 +356,24 @@ public class IdentityStoreEventListener extends AbstractIdentityUserOperationEve
             claimMap = new HashMap<>();
         }
 
-        if (!isHybridDataStoreEnable) {
-            /*
-            If hybrid data store is disabled, we need to use the identity claim value only from the identity data store.
-            Hence, we need to remove the identity claim values from the claimMap to avoid use of values from user store
-            for identity claims.
-             */
-            claimMap.entrySet().removeIf(
-                    entry -> entry.getKey().contains(UserCoreConstants.ClaimTypeURIs.IDENTITY_CLAIM_URI_PREFIX));
-        }
+        Set<String> identityDataStoreClaims = resolveIdentityStoreClaims(claims, storeManager);
 
-        // check if there are identity claims
-        boolean containsIdentityClaims = false;
-        for (String claim : claims) {
-            if (IdentityClaimStoreResolver.shouldPersistInIdentityDataStore(claim, userStoreManager)) {
-                containsIdentityClaims = true;
-                break;
-            }
-        }
-        // if there are no identity claims, let it go
-        if (!containsIdentityClaims) {
+        if (identityDataStoreClaims.isEmpty()) {
             return true;
         }
-        // there is/are identity claim/s . load the dto
+
+        if (!isHybridDataStoreEnable) {
+            claimMap.entrySet().removeIf(entry -> identityDataStoreClaims.contains(entry.getKey()));
+        }
 
         UserIdentityClaim identityDTO = identityDataStoreService.getIdentityClaimData(userName, storeManager);
-        // if no user identity data found, just continue
         if (identityDTO == null) {
             return true;
         }
-        // data found, add the values for security questions and identity claims
-        String value;
-        for (String claim : claims) {
-            if (identityDTO.getUserIdentityDataMap().containsKey(claim)
-                    && StringUtils.isNotBlank(value = identityDTO.getUserIdentityDataMap().get(claim))) {
+
+        for (String claim : identityDataStoreClaims) {
+            String value = identityDTO.getUserIdentityDataMap().get(claim);
+            if (StringUtils.isNotBlank(value)) {
                 claimMap.put(claim, value);
             }
         }
@@ -780,9 +825,14 @@ public class IdentityStoreEventListener extends AbstractIdentityUserOperationEve
                 continue;
             }
 
-            // No need to separately handle if identity data store is user store based for the users' userstore domain.
-            if (isStoreIdentityClaimsInUserStoreEnabled(userStoreManager
-                    .getSecondaryUserStoreManager(UserCoreUtil.extractDomainFromName(username)))) {
+            UserStoreManager targetUserStoreManager = resolveUserStoreManagerForUser(userStoreManager, username);
+
+            if (isStoreIdentityClaimsInUserStoreEnabled(targetUserStoreManager)) {
+                continue;
+            }
+
+            Set<String> identityDataStoreClaims = resolveIdentityStoreClaims(claims, targetUserStoreManager);
+            if (identityDataStoreClaims.isEmpty()) {
                 continue;
             }
 
@@ -796,19 +846,13 @@ public class IdentityStoreEventListener extends AbstractIdentityUserOperationEve
             }
 
             if (!isHybridDataStoreEnable) {
-                /*
-                If hybrid data store is disabled, we need to use the identity claim value only from the identity data
-                store. Hence, we need to remove the identity claim values from the claimMap to avoid use of values from
-                user store for identity claims.
-                 */
                 userClaimSearchEntry.getClaims().entrySet().removeIf(
-                        entry -> entry.getKey().contains(UserCoreConstants.ClaimTypeURIs.IDENTITY_CLAIM_URI_PREFIX));
+                        entry -> identityDataStoreClaims.contains(entry.getKey()));
             }
 
             // There is/are identity claim/s load the dto.
             UserIdentityClaim identityDTO = identityDataStoreService
-                    .getIdentityClaimData(userClaimSearchEntry.getUserName(), userStoreManager
-                    .getSecondaryUserStoreManager(UserCoreUtil.extractDomainFromName(username)));
+                    .getIdentityClaimData(userClaimSearchEntry.getUserName(), targetUserStoreManager);
 
             // If no user identity data found, just continue.
             if (identityDTO == null) {
@@ -816,9 +860,10 @@ public class IdentityStoreEventListener extends AbstractIdentityUserOperationEve
             }
 
             // Data found, add the values for security questions and identity claims.
-            for (String claim : claims) {
-                if (identityDTO.getUserIdentityDataMap().containsKey(claim)) {
-                    userClaimSearchEntry.getClaims().put(claim, identityDTO.getUserIdentityDataMap().get(claim));
+            for (String claim : identityDataStoreClaims) {
+                String value = identityDTO.getUserIdentityDataMap().get(claim);
+                if (StringUtils.isNotBlank(value)) {
+                    userClaimSearchEntry.getClaims().put(claim, value);
                 }
             }
         }

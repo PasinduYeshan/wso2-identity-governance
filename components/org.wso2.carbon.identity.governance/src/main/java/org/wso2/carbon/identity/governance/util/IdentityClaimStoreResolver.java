@@ -56,7 +56,6 @@ public final class IdentityClaimStoreResolver {
      * @param claimUri          Claim URI under evaluation.
      * @param userStoreManager  User store manager associated with the claim operation.
      * @return {@code true} if the claim should be stored in the identity data store, {@code false} otherwise.
-     * @throws UserStoreException If claim metadata cannot be retrieved.
      */
     public static boolean shouldPersistInIdentityDataStore(String claimUri, UserStoreManager userStoreManager) {
 
@@ -125,9 +124,9 @@ public final class IdentityClaimStoreResolver {
 
     /**
      * Extract claims that should be stored in the identity data store from the provided claims map.
+     * Entries selected for identity persistence are removed from the original map and returned in a new map.
      *
-     * @param claims           Claim map to evaluate. Claims that are selected for identity data store persistence will
-     *                         be removed from this map.
+     * @param claims           Claim map to evaluate. Mutated to remove identity-store-managed claims.
      * @param userStoreManager User store manager associated with the claim operation.
      * @return Claims that should be persisted in the identity data store.
      */
