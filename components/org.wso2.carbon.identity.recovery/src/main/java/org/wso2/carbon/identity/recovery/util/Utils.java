@@ -1520,9 +1520,123 @@ public class Utils {
      *
      * @param tenantDomain   Tenant domain.
      * @param userStoreDomain User store domain.
-     * @return True if the config is set to true, false otherwise.
+     * @return True if both multi-email and multi-mobile support are enabled for the user store.
+     * @deprecated Use {@link #isMultiEmailAddressesPerUserEnabled(String, String)} or
+     * {@link #isMultiMobileNumbersPerUserEnabled(String, String)} instead.
      */
+    @Deprecated
     public static boolean isMultiEmailsAndMobileNumbersPerUserEnabled(String tenantDomain, String userStoreDomain) {
+
+        return isMultiEmailAddressesPerUserEnabled(tenantDomain, userStoreDomain)
+                && isMultiMobileNumbersPerUserEnabled(tenantDomain, userStoreDomain);
+    }
+
+    /**
+     * Check whether email verification on claim update is enabled for the given tenant.
+     *
+     * @param tenantDomain Tenant domain.
+     * @return True if verification on update is enabled.
+     * @throws IdentityEventException If connector configs cannot be retrieved.
+     */
+    public static boolean isEmailVerificationOnUpdateEnabled(String tenantDomain) throws IdentityEventException {
+
+        return Boolean.parseBoolean(getConnectorConfig(
+                IdentityRecoveryConstants.ConnectorConfig.ENABLE_EMAIL_VERIFICATION_ON_UPDATE, tenantDomain));
+    }
+
+    /**
+     * Determine whether multiple email addresses per user are supported for the given tenant/user-store combination.
+     *
+     * @param tenantDomain    Tenant domain.
+     * @param userStoreDomain User store domain.
+     * @return True if multi-email support is enabled.
+     */
+    public static boolean isMultiEmailAddressesPerUserEnabled(String tenantDomain, String userStoreDomain) {
+
+        try {
+            boolean verificationEnabled = isEmailVerificationOnUpdateEnabled(tenantDomain);
+            return isMultiEmailAddressesPerUserEnabled(tenantDomain, userStoreDomain, verificationEnabled);
+        } catch (IdentityEventException e) {
+            log.error("Error while retrieving email verification-on-update configuration for tenant: "
+                    + tenantDomain, e);
+            return false;
+        }
+    }
+
+    /**
+     * Determine whether multiple email addresses per user are supported using a pre-fetched verification flag.
+     *
+     * @param tenantDomain                 Tenant domain.
+     * @param userStoreDomain              User store domain.
+     * @param emailVerificationOnUpdateEnabled Whether email verification-on-update is enabled.
+     * @return True if multi-email support is enabled.
+     */
+    public static boolean isMultiEmailAddressesPerUserEnabled(String tenantDomain, String userStoreDomain,
+            boolean emailVerificationOnUpdateEnabled) {
+
+        List<String> requiredClaims = new ArrayList<>();
+        requiredClaims.add(IdentityRecoveryConstants.EMAIL_ADDRESSES_CLAIM);
+        if (emailVerificationOnUpdateEnabled) {
+            requiredClaims.add(IdentityRecoveryConstants.VERIFIED_EMAIL_ADDRESSES_CLAIM);
+        }
+
+        return isMultiClaimConfigEnabled(tenantDomain, userStoreDomain, requiredClaims);
+    }
+
+    /**
+     * Check whether mobile number verification on claim update is enabled for the given tenant.
+     *
+     * @param tenantDomain Tenant domain.
+     * @return True if verification on update is enabled.
+     * @throws IdentityEventException If connector configs cannot be retrieved.
+     */
+    public static boolean isMobileVerificationOnUpdateEnabled(String tenantDomain) throws IdentityEventException {
+
+        return Boolean.parseBoolean(getConnectorConfig(
+                IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_NUM_VERIFICATION_ON_UPDATE, tenantDomain));
+    }
+
+    /**
+     * Determine whether multiple mobile numbers per user are supported for the given tenant/user-store combination.
+     *
+     * @param tenantDomain    Tenant domain.
+     * @param userStoreDomain User store domain.
+     * @return True if multi-mobile support is enabled.
+     */
+    public static boolean isMultiMobileNumbersPerUserEnabled(String tenantDomain, String userStoreDomain) {
+
+        try {
+            boolean verificationEnabled = isMobileVerificationOnUpdateEnabled(tenantDomain);
+            return isMultiMobileNumbersPerUserEnabled(tenantDomain, userStoreDomain, verificationEnabled);
+        } catch (IdentityEventException e) {
+            log.error("Error while retrieving mobile verification-on-update configuration for tenant: "
+                    + tenantDomain, e);
+            return false;
+        }
+    }
+
+    /**
+     * Determine whether multiple mobile numbers per user are supported using a pre-fetched verification flag.
+     *
+     * @param tenantDomain                    Tenant domain.
+     * @param userStoreDomain                 User store domain.
+     * @param mobileVerificationOnUpdateEnabled Whether mobile verification-on-update is enabled.
+     * @return True if multi-mobile support is enabled.
+     */
+    public static boolean isMultiMobileNumbersPerUserEnabled(String tenantDomain, String userStoreDomain,
+            boolean mobileVerificationOnUpdateEnabled) {
+
+        List<String> requiredClaims = new ArrayList<>();
+        requiredClaims.add(IdentityRecoveryConstants.MOBILE_NUMBERS_CLAIM);
+        if (mobileVerificationOnUpdateEnabled) {
+            requiredClaims.add(IdentityRecoveryConstants.VERIFIED_MOBILE_NUMBERS_CLAIM);
+        }
+
+        return isMultiClaimConfigEnabled(tenantDomain, userStoreDomain, requiredClaims);
+    }
+
+    private static boolean isMultiClaimConfigEnabled(String tenantDomain, String userStoreDomain,
+            List<String> requiredClaims) {
 
         if (!Boolean.parseBoolean(IdentityUtil.getProperty(
                 IdentityRecoveryConstants.ConnectorConfig.SUPPORT_MULTI_EMAILS_AND_MOBILE_NUMBERS_PER_USER))) {
@@ -1534,21 +1648,13 @@ public class Utils {
         }
 
         try {
-            List<LocalClaim> localClaims =
-                    IdentityRecoveryServiceDataHolder.getInstance().getClaimMetadataManagementService()
-                            .getLocalClaims(tenantDomain);
+            List<LocalClaim> localClaims = IdentityRecoveryServiceDataHolder.getInstance()
+                    .getClaimMetadataManagementService().getLocalClaims(tenantDomain);
 
-            List<String> requiredClaims = Arrays.asList(
-                    IdentityRecoveryConstants.VERIFIED_MOBILE_NUMBERS_CLAIM,
-                    IdentityRecoveryConstants.MOBILE_NUMBERS_CLAIM,
-                    IdentityRecoveryConstants.EMAIL_ADDRESSES_CLAIM,
-                    IdentityRecoveryConstants.VERIFIED_EMAIL_ADDRESSES_CLAIM);
-
-            // Check if all required claims are valid for the user store.
             return requiredClaims.stream().allMatch(claimUri ->
-                            isClaimSupportedForUserStore(localClaims, claimUri, userStoreDomain));
+                    isClaimSupportedForUserStore(localClaims, claimUri, userStoreDomain));
         } catch (ClaimMetadataException e) {
-            log.error("Error while retrieving multiple emails and mobiles config.", e);
+            log.error("Error while retrieving multiple email/mobile configuration.", e);
             return false;
         }
     }

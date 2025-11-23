@@ -1427,6 +1427,32 @@ public class UtilsTest {
         when(identityRecoveryServiceDataHolder.getClaimMetadataManagementService())
                 .thenReturn(claimMetadataManagementService);
 
+        // Mock verification-on-update connector lookups to avoid NullPointerExceptions when resolving multi-claim
+        // configuration state during the test scenarios below.
+        org.wso2.carbon.identity.application.common.model.Property emailVerificationOnUpdate =
+                new org.wso2.carbon.identity.application.common.model.Property();
+        emailVerificationOnUpdate.setValue(TRUE_STRING);
+        Mockito.when(identityGovernanceService.getConfiguration(
+                        Mockito.<String[]>argThat(keys -> keys != null && keys.length == 1
+                                && IdentityRecoveryConstants.ConnectorConfig.ENABLE_EMAIL_VERIFICATION_ON_UPDATE
+                                .equals(keys[0])),
+                        Mockito.eq(TENANT_DOMAIN)))
+                .thenReturn(new org.wso2.carbon.identity.application.common.model.Property[]{
+                        emailVerificationOnUpdate
+                });
+
+        org.wso2.carbon.identity.application.common.model.Property mobileVerificationOnUpdate =
+                new org.wso2.carbon.identity.application.common.model.Property();
+        mobileVerificationOnUpdate.setValue(TRUE_STRING);
+        Mockito.when(identityGovernanceService.getConfiguration(
+                        Mockito.<String[]>argThat(keys -> keys != null && keys.length == 1
+                                && IdentityRecoveryConstants.ConnectorConfig
+                                .ENABLE_MOBILE_NUM_VERIFICATION_ON_UPDATE.equals(keys[0])),
+                        Mockito.eq(TENANT_DOMAIN)))
+                .thenReturn(new org.wso2.carbon.identity.application.common.model.Property[]{
+                        mobileVerificationOnUpdate
+                });
+
         // Case 1: When support_multi_emails_and_mobile_numbers_per_user config is false.
         mockedStaticIdentityUtil.when(() -> IdentityUtil.getProperty(
                         IdentityRecoveryConstants.ConnectorConfig.SUPPORT_MULTI_EMAILS_AND_MOBILE_NUMBERS_PER_USER))

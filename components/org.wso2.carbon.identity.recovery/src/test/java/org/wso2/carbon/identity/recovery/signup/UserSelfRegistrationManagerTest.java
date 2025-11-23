@@ -1032,12 +1032,15 @@ public class UserSelfRegistrationManagerTest {
         when(identityGovernanceService.getConfiguration(any(), anyString())).thenReturn(testProperties);
 
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
-            mockedUtils.when(() -> Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(anyString(), anyString()))
-                    .thenReturn(true);
-            mockedUtils.when(() -> Utils.getConnectorConfig(
-                            eq(IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER),
-                            anyString()))
-                    .thenReturn("true");
+        mockedUtils.when(() -> Utils.isEmailVerificationOnUpdateEnabled(TEST_TENANT_DOMAIN_NAME))
+                .thenReturn(true);
+        mockedUtils.when(() -> Utils.isMultiEmailAddressesPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+        mockedUtils.when(() -> Utils.isMultiMobileNumbersPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+        mockedUtils.when(() -> Utils.getConnectorConfig(
+                IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER,
+                TEST_TENANT_DOMAIN_NAME)).thenReturn("true");
             mockedUtils.when(() -> Utils.getSignUpConfigs(eq(IdentityRecoveryConstants.ConnectorConfig
                             .SELF_REGISTRATION_NOTIFY_ACCOUNT_CONFIRMATION),
                     anyString())).thenReturn("true");
@@ -1062,12 +1065,16 @@ public class UserSelfRegistrationManagerTest {
         // Case 2: External Verified Channel type.
         verifiedChannelType = NotificationChannels.EXTERNAL_CHANNEL.getChannelType();
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
-            mockedUtils.when(() -> Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(anyString(), anyString()))
+            mockedUtils.when(() -> Utils.isEmailVerificationOnUpdateEnabled(TEST_TENANT_DOMAIN_NAME))
                     .thenReturn(true);
-            mockedUtils.when(() -> Utils.getConnectorConfig(
-                            eq(IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER),
-                            anyString()))
-                    .thenReturn("true");
+            mockedUtils.when(() -> Utils.isMultiEmailAddressesPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+            mockedUtils.when(() -> Utils.isMultiMobileNumbersPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+        mockedUtils.when(() -> Utils.getConnectorConfig(
+                        IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER,
+                        TEST_TENANT_DOMAIN_NAME))
+                .thenReturn("true");
             mockedUtils.when(() -> Utils.getSignUpConfigs(eq(IdentityRecoveryConstants.ConnectorConfig
                             .SELF_REGISTRATION_NOTIFY_ACCOUNT_CONFIRMATION),
                     anyString())).thenReturn("true");
@@ -1085,12 +1092,16 @@ public class UserSelfRegistrationManagerTest {
 
         // Case 3: Throws user store exception while getting user claim values.
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
-            mockedUtils.when(() -> Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(anyString(), anyString()))
+            mockedUtils.when(() -> Utils.isEmailVerificationOnUpdateEnabled(TEST_TENANT_DOMAIN_NAME))
                     .thenReturn(true);
-            mockedUtils.when(() -> Utils.getConnectorConfig(
-                            eq(IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER),
-                            anyString()))
-                    .thenReturn("true");
+            mockedUtils.when(() -> Utils.isMultiEmailAddressesPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+            mockedUtils.when(() -> Utils.isMultiMobileNumbersPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+        mockedUtils.when(() -> Utils.getConnectorConfig(
+                        IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER,
+                        TEST_TENANT_DOMAIN_NAME))
+                .thenReturn("true");
             mockedUtils.when(() -> Utils.getSignUpConfigs(eq(IdentityRecoveryConstants.ConnectorConfig
                             .SELF_REGISTRATION_NOTIFY_ACCOUNT_CONFIRMATION),
                     anyString())).thenReturn("true");
@@ -1110,8 +1121,12 @@ public class UserSelfRegistrationManagerTest {
         verifiedChannelType = NotificationChannels.SMS_CHANNEL.getChannelType();
         verifiedChannelClaim = "http://wso2.org/claims/invalid";
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
-            mockedUtils.when(() -> Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(anyString(), anyString()))
+            mockedUtils.when(() -> Utils.isEmailVerificationOnUpdateEnabled(TEST_TENANT_DOMAIN_NAME))
                     .thenReturn(true);
+            mockedUtils.when(() -> Utils.isMultiEmailAddressesPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+            mockedUtils.when(() -> Utils.isMultiMobileNumbersPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
             mockedUtils.when(() -> Utils.getConnectorConfig(
                             eq(IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER),
                             anyString()))
@@ -1157,8 +1172,12 @@ public class UserSelfRegistrationManagerTest {
         when(identityGovernanceService.getConfiguration(any(), anyString())).thenReturn(testProperties);
 
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
-            mockedUtils.when(() -> Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(anyString(), anyString()))
+            mockedUtils.when(() -> Utils.isEmailVerificationOnUpdateEnabled(TEST_TENANT_DOMAIN_NAME))
                     .thenReturn(true);
+            mockedUtils.when(() -> Utils.isMultiEmailAddressesPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
+            mockedUtils.when(() -> Utils.isMultiMobileNumbersPerUserEnabled(TEST_TENANT_DOMAIN_NAME,
+                    TEST_USERSTORE_DOMAIN, true)).thenReturn(true);
             mockedUtils.when(() -> Utils.getConnectorConfig(
                             eq(IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_VERIFICATION_BY_PRIVILEGED_USER),
                             anyString()))

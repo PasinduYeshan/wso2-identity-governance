@@ -774,16 +774,14 @@ public class UserEmailVerificationHandlerTest {
 
     private void mockExistingEmailAddressesList(List<String> existingEmails) {
 
-        mockedUtils.when(() -> Utils.getMultiValuedClaim(any(), any(),
-                        eq(IdentityRecoveryConstants.EMAIL_ADDRESSES_CLAIM)))
-                .thenReturn(existingEmails);
+        mockedUtils.when(() -> Utils.getMultiValuedClaim(any(UserStoreManager.class), any(User.class),
+                eq(IdentityRecoveryConstants.EMAIL_ADDRESSES_CLAIM))).thenReturn(existingEmails);
     }
 
     private void mockExistingVerifiedEmailAddressesList(List<String> existingVerifiedEmails) {
 
-        mockedUtils.when(() -> Utils.getMultiValuedClaim(any(), any(),
-                        eq(IdentityRecoveryConstants.VERIFIED_EMAIL_ADDRESSES_CLAIM)))
-                .thenReturn(existingVerifiedEmails);
+        mockedUtils.when(() -> Utils.getMultiValuedClaim(any(UserStoreManager.class), any(User.class),
+                eq(IdentityRecoveryConstants.VERIFIED_EMAIL_ADDRESSES_CLAIM))).thenReturn(existingVerifiedEmails);
     }
 
     private void mockPrimaryEmail(String primaryEmail) throws UserStoreException {
@@ -803,15 +801,17 @@ public class UserEmailVerificationHandlerTest {
 
     private void mockPrimaryEmailVerificationStatus(boolean isVerified) {
         
-        mockedUtils.when(() -> Utils.getUserClaim(any(), any(), eq(IdentityRecoveryConstants.EMAIL_VERIFIED_CLAIM)))
-                .thenReturn(String.valueOf(isVerified));
+        mockedUtils.when(() -> Utils.getUserClaim(any(UserStoreManager.class), any(User.class),
+                eq(IdentityRecoveryConstants.EMAIL_VERIFIED_CLAIM))).thenReturn(String.valueOf(isVerified));
     }
 
     private void mockUtilMethods(boolean emailVerificationEnabled, boolean multiAttributeEnabled,
                                  boolean userVerifyClaimEnabled, boolean notificationOnEmailUpdate) {
 
-        mockedUtils.when(() -> Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(anyString(), anyString()))
-                .thenReturn(multiAttributeEnabled);
+        mockedUtils.when(() -> Utils.isEmailVerificationOnUpdateEnabled(TEST_TENANT_DOMAIN))
+                .thenReturn(emailVerificationEnabled);
+        mockedUtils.when(() -> Utils.isMultiEmailAddressesPerUserEnabled(TEST_TENANT_DOMAIN,
+                TEST_USER_STORE_DOMAIN, emailVerificationEnabled)).thenReturn(multiAttributeEnabled);
         mockedUtils.when(Utils::isUseVerifyClaimEnabled).thenReturn(userVerifyClaimEnabled);
         mockGetConnectorConfig(IdentityRecoveryConstants.ConnectorConfig.ENABLE_EMAIL_VERIFICATION_ON_UPDATE,
                 emailVerificationEnabled);
@@ -821,7 +821,7 @@ public class UserEmailVerificationHandlerTest {
 
     private void mockGetConnectorConfig(String connectorConfig, boolean value) {
 
-        mockedUtils.when(() -> Utils.getConnectorConfig(eq(connectorConfig), anyString()))
+        mockedUtils.when(() -> Utils.getConnectorConfig(connectorConfig, TEST_TENANT_DOMAIN))
                 .thenReturn(String.valueOf(value));
     }
 

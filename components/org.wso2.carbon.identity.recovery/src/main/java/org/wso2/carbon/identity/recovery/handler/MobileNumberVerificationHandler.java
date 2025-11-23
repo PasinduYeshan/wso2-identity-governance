@@ -119,10 +119,9 @@ public class MobileNumberVerificationHandler extends AbstractEventHandler {
             claims = new HashMap<>();
         }
 
-        boolean supportMultipleMobileNumbers =
-                Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(user.getTenantDomain(), user.getUserStoreDomain());
-
-        boolean enable = isMobileVerificationOnUpdateEnabled(user.getTenantDomain());
+        boolean enable = Utils.isMobileVerificationOnUpdateEnabled(user.getTenantDomain());
+        boolean supportMultipleMobileNumbers = Utils.isMultiMobileNumbersPerUserEnabled(
+                user.getTenantDomain(), user.getUserStoreDomain(), enable);
 
         if (!supportMultipleMobileNumbers) {
             // Multiple mobile numbers per user support is disabled.
@@ -153,7 +152,7 @@ public class MobileNumberVerificationHandler extends AbstractEventHandler {
             if (supportMultipleMobileNumbers && !claims.containsKey(IdentityRecoveryConstants.MOBILE_NUMBER_CLAIM)) {
                 Utils.setThreadLocalIsOnlyVerifiedMobileNumbersUpdated(true);
             }
-            preSetUserClaimOnMobileNumberUpdate(claims, userStoreManager, user);
+            preSetUserClaimOnMobileNumberUpdate(claims, userStoreManager, user, supportMultipleMobileNumbers);
             claims.remove(IdentityRecoveryConstants.VERIFY_MOBILE_CLAIM);
         }
 
@@ -312,7 +311,8 @@ public class MobileNumberVerificationHandler extends AbstractEventHandler {
      * @throws IdentityEventException
      */
     private void preSetUserClaimOnMobileNumberUpdate(Map<String, String> claims, UserStoreManager userStoreManager,
-                                                     User user) throws IdentityEventException {
+                                                     User user, boolean supportMultipleMobileNumbers)
+            throws IdentityEventException {
 
         if (MapUtils.isEmpty(claims)) {
             // Not required to handle in this handler.
@@ -340,9 +340,6 @@ public class MobileNumberVerificationHandler extends AbstractEventHandler {
         if (Utils.getThreadLocalToSkipSendingSmsOtpVerificationOnUpdate() != null) {
             Utils.unsetThreadLocalToSkipSendingSmsOtpVerificationOnUpdate();
         }
-
-        boolean supportMultipleMobileNumbers =
-                Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(user.getTenantDomain(), user.getUserStoreDomain());
 
         // Update multiple mobile numbers only if they’re in the claims map.
         // This avoids issues with updating the primary mobile number due to user store limitations on multiple
@@ -614,12 +611,6 @@ public class MobileNumberVerificationHandler extends AbstractEventHandler {
      * @return True if the feature is enabled, false otherwise.
      * @throws IdentityEventException
      */
-    private boolean isMobileVerificationOnUpdateEnabled(String userTenantDomain) throws IdentityEventException {
-
-        return Boolean.parseBoolean(Utils.getConnectorConfig(IdentityRecoveryConstants.ConnectorConfig
-                .ENABLE_MOBILE_NUM_VERIFICATION_ON_UPDATE, userTenantDomain));
-    }
-
     /**
      * Invalidate pending mobile number verification.
      *

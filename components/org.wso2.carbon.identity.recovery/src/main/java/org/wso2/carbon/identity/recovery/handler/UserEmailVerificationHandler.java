@@ -121,9 +121,7 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
             claims = new HashMap<>();
         }
 
-        boolean supportMultipleEmails =
-                Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(user.getTenantDomain(), user.getUserStoreDomain());
-
+        boolean supportMultipleEmails = false;
         boolean enable = false;
 
         if (IdentityEventConstants.Event.PRE_ADD_USER.equals(eventName) ||
@@ -133,7 +131,9 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
         } else if (IdentityEventConstants.Event.PRE_SET_USER_CLAIMS.equals(eventName) ||
                 IdentityEventConstants.Event.POST_SET_USER_CLAIMS.equals(eventName)) {
 
-            enable = isEmailVerificationOnUpdateEnabled(user.getTenantDomain());
+            enable = Utils.isEmailVerificationOnUpdateEnabled(user.getTenantDomain());
+            supportMultipleEmails = Utils.isMultiEmailAddressesPerUserEnabled(
+                    user.getTenantDomain(), user.getUserStoreDomain(), enable);
 
             if (!supportMultipleEmails) {
                 if (log.isDebugEnabled()) {
@@ -261,7 +261,7 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
             if (supportMultipleEmails && !claims.containsKey(IdentityRecoveryConstants.EMAIL_ADDRESS_CLAIM)) {
                 Utils.setThreadLocalIsOnlyVerifiedEmailAddressesUpdated(true);
             }
-            preSetUserClaimsOnEmailUpdate(claims, userStoreManager, user);
+            preSetUserClaimsOnEmailUpdate(claims, userStoreManager, user, supportMultipleEmails);
             claims.remove(IdentityRecoveryConstants.VERIFY_EMAIL_CLIAM);
         }
 
@@ -269,12 +269,6 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
             postSetUserClaimsOnEmailUpdate(user, userStoreManager);
             claims.remove(IdentityRecoveryConstants.VERIFY_EMAIL_CLIAM);
         }
-    }
-
-    private boolean isEmailVerificationOnUpdateEnabled(String tenantDomain) throws IdentityEventException {
-
-        return Boolean.parseBoolean(Utils.getConnectorConfig(IdentityRecoveryConstants.ConnectorConfig
-                .ENABLE_EMAIL_VERIFICATION_ON_UPDATE, tenantDomain));
     }
 
     @Override
@@ -517,7 +511,8 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
     }
 
     private void preSetUserClaimsOnEmailUpdate(Map<String, String> claims, UserStoreManager userStoreManager,
-                                               User user) throws IdentityEventException {
+                                               User user, boolean supportMultipleEmails)
+            throws IdentityEventException {
 
         if (MapUtils.isEmpty(claims)) {
             Utils.setThreadLocalToSkipSendingEmailVerificationOnUpdate(IdentityRecoveryConstants.
@@ -550,9 +545,6 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
         if (Utils.getThreadLocalToSkipSendingEmailVerificationOnUpdate() != null) {
             Utils.unsetThreadLocalToSkipSendingEmailVerificationOnUpdate();
         }
-
-        boolean supportMultipleEmails =
-                Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(user.getTenantDomain(), user.getUserStoreDomain());
         // Update multiple email address related claims only if they’re in the claims map.
         // This avoids issues with updating the primary email address due to user store limitations on multiple
         // email addresses.

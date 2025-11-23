@@ -684,12 +684,14 @@ public class MobileNumberVerificationHandlerTest {
     private void mockUtilMethods(boolean mobileVerificationEnabled, boolean multiAttributeEnabled,
                                  boolean useVerifyClaimEnabled) {
 
-        mockedUtils.when(() -> Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(anyString(), anyString()))
-                .thenReturn(multiAttributeEnabled);
+        mockedUtils.when(() -> Utils.isMobileVerificationOnUpdateEnabled(TEST_TENANT_DOMAIN))
+                .thenReturn(mobileVerificationEnabled);
+        mockedUtils.when(() -> Utils.isMultiMobileNumbersPerUserEnabled(TEST_TENANT_DOMAIN,
+                TEST_USER_STORE_DOMAIN, mobileVerificationEnabled)).thenReturn(multiAttributeEnabled);
         mockedUtils.when(Utils::isUseVerifyClaimEnabled).thenReturn(useVerifyClaimEnabled);
         mockedUtils.when(() -> Utils.getConnectorConfig(
-                        eq(IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_NUM_VERIFICATION_ON_UPDATE),
-                        anyString()))
+                IdentityRecoveryConstants.ConnectorConfig.ENABLE_MOBILE_NUM_VERIFICATION_ON_UPDATE,
+                TEST_TENANT_DOMAIN))
                 .thenReturn(String.valueOf(mobileVerificationEnabled));
     }
 

@@ -833,13 +833,14 @@ public class UserSelfRegistrationManager {
                     verifiedChannelClaim);
         }
 
-        // Get the claims that needs to be updated.
-        // NOTE: Verification channel is stored in Remaining_Sets in user recovery data.
+        // Build the claim map to persist once verification succeeds. Remaining_Sets stores verification channel.
         HashMap<String, String> userClaims = getClaimsListToUpdate(user, verifiedChannelType,
                 externallyVerifiedClaim, recoveryData.getRecoveryScenario().toString());
 
-        boolean supportMultipleEmailsAndMobileNumbers =
-                Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(user.getTenantDomain(), user.getUserStoreDomain());
+        boolean supportMultipleEmails = Utils.isMultiEmailAddressesPerUserEnabled(user.getTenantDomain(),
+                user.getUserStoreDomain(), true);
+        boolean supportMultipleMobiles = Utils.isMultiMobileNumbersPerUserEnabled(user.getTenantDomain(),
+                user.getUserStoreDomain(), true);
         String multiAttributeSeparator = FrameworkUtils.getMultiAttributeSeparator();
 
         if (RecoverySteps.VERIFY_EMAIL.equals(recoveryData.getRecoveryStep())) {
@@ -850,7 +851,7 @@ public class UserSelfRegistrationManager {
                 // Only update verified email addresses claim if the recovery scenario is
                 // EMAIL_VERIFICATION_ON_VERIFIED_LIST_UPDATE.
                 if (RecoveryScenarios.EMAIL_VERIFICATION_ON_VERIFIED_LIST_UPDATE.equals(
-                        recoveryData.getRecoveryScenario()) && supportMultipleEmailsAndMobileNumbers) {
+                        recoveryData.getRecoveryScenario()) && supportMultipleEmails) {
                     try {
                         List<String> verifiedEmails = Utils.getMultiValuedClaim(userStoreManager, user,
                                 IdentityRecoveryConstants.VERIFIED_EMAIL_ADDRESSES_CLAIM);
@@ -897,7 +898,7 @@ public class UserSelfRegistrationManager {
                             recoveryData.getRecoveryScenario())
                             || RecoveryScenarios.PROGRESSIVE_PROFILE_MOBILE_VERIFICATION_ON_VERIFIED_LIST_UPDATE
                             .equals(recoveryData.getRecoveryScenario()))
-                        && supportMultipleEmailsAndMobileNumbers) {
+                        && supportMultipleMobiles) {
                     try {
                         List<String> existingVerifiedMobileNumbersList = Utils.getMultiValuedClaim(userStoreManager,
                                 user, IdentityRecoveryConstants.VERIFIED_MOBILE_NUMBERS_CLAIM);
@@ -1100,8 +1101,8 @@ public class UserSelfRegistrationManager {
         UserStoreManager userStoreManager = getUserStoreManager(user);
         HashMap<String, String> userClaims = new HashMap<>();
 
-        boolean supportMultipleEmailsAndMobileNumbers =
-                Utils.isMultiEmailsAndMobileNumbersPerUserEnabled(user.getTenantDomain(), user.getUserStoreDomain());
+        boolean supportMultipleMobiles = Utils.isMultiMobileNumbersPerUserEnabled(user.getTenantDomain(),
+                user.getUserStoreDomain(), true);
 
         String pendingMobileNumberClaimValue = recoveryData.getRemainingSetIds();
         if (StringUtils.isNotBlank(pendingMobileNumberClaimValue)) {
@@ -1111,7 +1112,7 @@ public class UserSelfRegistrationManager {
             */
             if ((RecoveryScenarios.MOBILE_VERIFICATION_ON_VERIFIED_LIST_UPDATE.equals(recoveryData.getRecoveryScenario()
                     ) || RecoveryScenarios.PROGRESSIVE_PROFILE_MOBILE_VERIFICATION_ON_VERIFIED_LIST_UPDATE.equals(
-                    recoveryData.getRecoveryScenario())) && supportMultipleEmailsAndMobileNumbers) {
+                    recoveryData.getRecoveryScenario())) && supportMultipleMobiles) {
                 try {
                     String multiAttributeSeparator = FrameworkUtils.getMultiAttributeSeparator();
                     List<String> existingVerifiedMobileNumbersList = Utils.getMultiValuedClaim(userStoreManager,
